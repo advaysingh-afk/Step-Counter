@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StepTrack | Smart Step Counter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f3f7f5;
+      color: #173229;
+      min-height: 100vh;
+      transition: background .25s, color .25s;
+    }
+    .container { width: min(1000px, 92%); margin: 0 auto; padding: 28px 0; }
+    nav { display:flex; justify-content:space-between; align-items:center; margin-bottom:48px; }
+    .logo { color:#07865e; font-size:26px; font-weight:800; }
+    button { border:0; border-radius:11px; padding:12px 18px; cursor:pointer; font-weight:700; }
+    .theme { background:#e2f3eb; font-size:18px; }
+    header { margin-bottom:24px; }
+    header h1 { font-size:clamp(29px, 5vw, 40px); margin-bottom:9px; }
+    header p, .muted { color:#82918a; }
+    .main-card {
+      color:white; padding:36px; border-radius:24px; text-align:center;
+      background:linear-gradient(130deg,#087653,#20bd83);
+      box-shadow:0 14px 35px #08765325;
+    }
+    .main-card h3 { font-size:14px; letter-spacing:1.5px; margin-bottom:12px; }
+    .steps { font-size:clamp(48px, 9vw, 68px); font-weight:800; margin:10px 0; }
+    .progress { height:12px; background:#ffffff55; border-radius:20px; overflow:hidden; margin:25px 0 10px; }
+    .progress-bar { height:100%; width:0; background:white; border-radius:20px; transition:width .25s; }
+    .controls { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-top:26px; }
+    .controls button { color:#087653; background:white; }
+    .controls .reset { color:white; background:#ffffff30; }
+    .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin:23px 0; }
+    .stat-card, .goal-card { background:white; border:1px solid #e6eeea; border-radius:17px; padding:25px; }
+    .stat-card { text-align:center; }
+    .stat-icon { font-size:28px; }
+    .stat-card h2 { color:#079669; font-size:25px; margin:12px 0 7px; }
+    .stat-card p, .goal-card p { color:#82918a; font-size:14px; }
+    .goal-card { display:flex; justify-content:space-between; align-items:center; gap:20px; }
+    .goal-card h2 { margin-bottom:7px; }
+    input { width:150px; max-width:100%; padding:12px; border:1px solid #d5e2dc; border-radius:10px; font-size:16px; }
+    footer { text-align:center; color:#82918a; padding:30px 0 10px; font-size:13px; }
+    body.dark { background:#101b18; color:#f0f7f3; }
+    body.dark .stat-card, body.dark .goal-card { background:#1c2c25; border-color:#2b4036; }
+    body.dark .theme { background:#263b31; color:white; }
+    @media(max-width:650px) {
+      .stats { grid-template-columns:1fr; }
+      .main-card { padding:26px 16px; }
+      .goal-card { align-items:flex-start; flex-direction:column; }
+      input { width:100%; }
+      nav { margin-bottom:35px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <div class="logo">👟 StepTrack</div>
+      <button class="theme" id="themeButton" type="button" aria-label="Toggle dark mode">🌙</button>
+    </nav>
+
+    <header>
+      <h1>Your Daily Activity</h1>
+      <p>Every step takes you closer to a healthier life.</p>
+    </header>
+
+    <section class="main-card">
+      <h3>👟 TODAY'S STEPS</h3>
+      <div class="steps" id="steps">0</div>
+      <p>Daily Goal: <span id="goalText">10,000</span> steps</p>
+      <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+      <p id="percentage">0% completed</p>
+      <div class="controls">
+        <button type="button" id="add100">+ 100 Steps</button>
+        <button type="button" id="add500">+ 500 Steps</button>
+        <button type="button" id="remove100">− 100 Steps</button>
+        <button type="button" class="reset" id="reset">↻ Reset</button>
+      </div>
+    </section>
+
+    <section class="stats">
+      <article class="stat-card"><div class="stat-icon">🔥</div><h2 id="calories">0 kcal</h2><p>Calories Burned</p></article>
+      <article class="stat-card"><div class="stat-icon">📍</div><h2 id="distance">0.00 km</h2><p>Distance Covered</p></article>
+      <article class="stat-card"><div class="stat-icon">🎯</div><h2 id="remaining">10,000</h2><p>Steps Remaining</p></article>
+    </section>
+
+    <section class="goal-card">
+      <div><h2>🎯 Daily Goal</h2><p>Set your daily walking target.</p></div>
+      <input id="goalInput" type="number" min="1" step="100" value="10000" aria-label="Daily step goal">
+    </section>
+
+    <footer>© 2026 StepTrack | Keep Moving, Keep Growing 💚</footer>
+  </div>
+
+  <script>
+    (() => {
+      const $ = (id) => document.getElementById(id);
+      let steps = 0;
+      let goal = 10000;
+
+      try {
+        const saved = Number(localStorage.getItem("steptrack_steps"));
+        if (Number.isFinite(saved) && saved >= 0) steps = saved;
+      } catch (error) { /* Storage may be unavailable; the counter still works. */ }
+
+      function update() {
+        const safeGoal = Math.max(1, goal);
+        const progress = Math.min((steps / safeGoal) * 100, 100);
+        $("steps").textContent = steps.toLocaleString();
+        $("goalText").textContent = safeGoal.toLocaleString();
+        $("calories").textContent = Math.round(steps * 0.04) + " kcal";
+        $("distance").textContent = (steps * 0.000762).toFixed(2) + " km";
+        $("remaining").textContent = Math.max(safeGoal - steps, 0).toLocaleString();
+        $("progressBar").style.width = progress + "%";
+        $("percentage").textContent = progress.toFixed(1) + "% completed";
+        try { localStorage.setItem("steptrack_steps", String(steps)); } catch (error) {}
+      }
+
+      $("add100").addEventListener("click", () => { steps += 100; update(); });
+      $("add500").addEventListener("click", () => { steps += 500; update(); });
+      $("remove100").addEventListener("click", () => { steps = Math.max(0, steps - 100); update(); });
+      $("reset").addEventListener("click", () => {
+        if (confirm("Reset today's step count to zero?")) { steps = 0; update(); }
+      });
+      $("goalInput").addEventListener("change", (event) => {
+        const value = Number(event.target.value);
+        if (Number.isFinite(value) && value > 0) {
+          goal = Math.floor(value);
+          event.target.value = goal;
+          update();
+        } else {
+          alert("Enter a goal greater than zero.");
+          event.target.value = goal;
+        }
+      });
+      $("themeButton").addEventListener("click", () => {
+        document.body.classList.toggle("dark");
+        $("themeButton").textContent = document.body.classList.contains("dark") ? "☀️" : "🌙";
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>
